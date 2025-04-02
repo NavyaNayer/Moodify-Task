@@ -3,11 +3,14 @@ import torch
 import os
 from dotenv import load_dotenv
 from together import Together
-from transformers import BertTokenizer,DistilBertTokenizer, BertForSequenceClassification, DistilBertForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, BertTokenizer,DistilBertTokenizer, BertForSequenceClassification, DistilBertForSequenceClassification
 from datetime import datetime, timedelta
 import pandas as pd
 from task_css import get_custom_css  # Import the custom CSS function
 import gdown
+
+# Set environment variable for offline mode
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +30,9 @@ num_intent_labels = 151  # Moved this up before model creation
 # Load Emotion Model
 emotions_model_path = "./saved_model"
 emotions_folder_id = "1gYWkbC_XBw_GZjsfwXvubHFil4BCq_gH"
+
+# Add new pretrained model ID
+pretrained_folder_id = "13t_EB2LFhRIwb3dkKDtA0O5NXXZBoG-j"
 
 # Initialize Session State
 if "is_ready" not in st.session_state:
@@ -62,6 +68,17 @@ if not st.session_state.is_ready:
     
     # Load models here
     try:
+        # First download pretrained models
+        if not os.path.exists("pretrained_models"):
+            with st.status("Downloading base models...", expanded=True) as status:
+                os.makedirs("pretrained_models", exist_ok=True)
+                gdown.download_folder(
+                    f"https://drive.google.com/drive/folders/{pretrained_folder_id}",
+                    output="pretrained_models",
+                    quiet=False
+                )
+                status.update(label="Base models downloaded!", state="complete")
+
         # Intent Model Loading
         if not os.path.exists(intent_model_path):
             with st.status("Downloading intent model...", expanded=True) as status:
@@ -84,20 +101,32 @@ if not st.session_state.is_ready:
                 status.update(label="Emotion model downloaded!", state="complete")
 
         # Load and store intent model
-        intent_model = BertForSequenceClassification.from_pretrained(
-            "bert-base-uncased", 
-            num_labels=num_intent_labels
+        intent_model = AutoModelForSequenceClassification.from_pretrained(
+            "pretrained_models/bert-base-uncased",
+            num_labels=num_intent_labels,
+            ignore_mismatched_sizes=True,  # Add this parameter
+            local_files_only=True
         )
         intent_model.load_state_dict(
             torch.load(intent_model_path, map_location=device, weights_only=True)
         )
         st.session_state.models["intent_model"] = intent_model.to(device).eval()
-        st.session_state.models["intent_tokenizer"] = BertTokenizer.from_pretrained("bert-base-uncased")
+        st.session_state.models["intent_tokenizer"] = AutoTokenizer.from_pretrained(
+            "pretrained_models/bert-base-uncased",
+            local_files_only=True
+        )
 
         # Load and store emotion model
-        emotions_model = DistilBertForSequenceClassification.from_pretrained(emotions_model_path)
+        emotions_model = AutoModelForSequenceClassification.from_pretrained(
+            emotions_model_path,
+            ignore_mismatched_sizes=True,  # Add this parameter
+            local_files_only=True
+        )
         st.session_state.models["emotions_model"] = emotions_model.to(device).eval()
-        st.session_state.models["emotions_tokenizer"] = DistilBertTokenizer.from_pretrained(emotions_model_path)
+        st.session_state.models["emotions_tokenizer"] = AutoTokenizer.from_pretrained(
+            emotions_model_path,
+            local_files_only=True
+        )
 
         # Set ready state
         st.session_state.is_ready = True
