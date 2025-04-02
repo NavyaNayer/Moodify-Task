@@ -7,3 +7,8 @@ gdown
 streamlit
 transformers
 pandas
+
+transformers==4.35.2
+tokenizers==0.15.0
+
+
