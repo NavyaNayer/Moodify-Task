@@ -1,5 +1,5 @@
-together==0.2.4
-python-dotenv==1.0.0
+together
+python-dotenv
 torch
 torchvision
 torchaudio
