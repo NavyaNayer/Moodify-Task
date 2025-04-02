@@ -4,3 +4,6 @@ torch
 torchvision
 torchaudio
 gdown
+streamlit
+transformers
+pandas
